@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Sopa de letras animada — Nivel 4</title>
+<style>
+  :root {
+    --page: #f4f7fb;
+    --ink: #172536;
+    --muted: #5d6b7c;
+    --line: #cbd5e1;
+    --tile: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 14px 36px;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--page);
+    color: var(--ink);
+  }
+  main { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: clamp(1.35rem, 3vw, 2rem); margin: 0 0 6px; }
+  .intro { color: var(--muted); margin: 0 0 20px; }
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(210px, 260px);
+    gap: 18px;
+    align-items: start;
+  }
+  .board-wrap, .word-panel {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 5px 20px rgba(23,37,54,.06);
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(15, minmax(0, 1fr));
+    gap: 3px;
+    width: 100%;
+  }
+  .cell {
+    aspect-ratio: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid #dbe3ec;
+    border-radius: 5px;
+    background: var(--tile);
+    color: #172536;
+    font-size: clamp(9px, 1.45vw, 17px);
+    font-weight: 750;
+    line-height: 1;
+    user-select: none;
+  }
+  .cell.found {
+    --word-color: #64748b;
+    color: #172536;
+    background: color-mix(in srgb, var(--word-color) 20%, white);
+    border: 2px solid var(--word-color);
+    animation: pulse var(--speed, 1.8s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+    box-shadow: 0 0 5px color-mix(in srgb, var(--word-color) 35%, transparent);
+  }
+  .word-panel h2 { font-size: 1rem; margin: 3px 0 12px; }
+  .word-list { display: grid; gap: 8px; }
+  .word-chip {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    padding: 8px 10px;
+    border: 2px solid var(--word-color);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--word-color) 14%, white);
+    font-size: .92rem;
+    font-weight: 800;
+    animation: pulse var(--speed, 1.8s) ease-in-out infinite;
+    animation-delay: var(--delay, 0s);
+  }
+  .dot {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--word-color); flex: 0 0 auto;
+  }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; margin: 16px 0 0; }
+  button {
+    border: 0; border-radius: 9px; padding: 10px 14px;
+    background: #183b62; color: #fff; font: inherit; font-weight: 700;
+    cursor: pointer;
+  }
+  button.secondary { background: #e2e8f0; color: #172536; }
+  button:focus-visible { outline: 3px solid #f59e0b; outline-offset: 3px; }
+  .note { color: var(--muted); font-size: .9rem; margin: 12px 0 0; }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; filter: saturate(1); }
+    50% { opacity: .58; filter: saturate(.78); }
+  }
+  .paused * { animation-play-state: paused !important; }
+  @media (max-width: 720px) {
+    body { padding: 16px 8px 28px; }
+    .layout { grid-template-columns: 1fr; }
+    .word-panel { order: 2; }
+    .word-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .cell { border-radius: 3px; font-size: clamp(8px, 2.3vw, 14px); }
+    .board-wrap { padding: 6px; }
+    .grid { gap: 2px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .cell.found, .word-chip { animation: none; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>Sopa de letras — Nivel 4</h1>
+  <p class="intro">10 palabras, 15 × 15 letras, ocho direcciones y titileo suave por palabra.</p>
+  <section class="layout" aria-label="Sopa de letras y lista de palabras">
+    <div>
+      <div class="board-wrap">
+        <div id="grid" class="grid" role="group" aria-label="Cuadrícula de sopa de letras"></div>
+      </div>
+      <div class="controls">
+        <button id="toggle" type="button">Pausar animación</button>
+        <button id="newGrid" class="secondary" type="button">Generar otra cuadrícula</button>
+      </div>
+      <p class="note">Las palabras pueden aparecer horizontalmente, verticalmente o en diagonal, en sentido directo o inverso. La animación se puede pausar.</p>
+    </div>
+    <aside class="word-panel">
+      <h2>Palabras a buscar</h2>
+      <div id="wordList" class="word-list"></div>
+    </aside>
+  </section>
+</main>
+<script>
+"use strict";
+const WORDS = [{"word": "CETO", "color": "#E53935"}, {"word": "CONTEXTO", "color": "#1E88E5"}, {"word": "EXPERTO", "color": "#43A047"}, {"word": "TAREA", "color": "#F9A825"}, {"word": "DATOS", "color": "#8E24AA"}, {"word": "ANALISIS", "color": "#00897B"}, {"word": "PROMPT", "color": "#FB8C00"}, {"word": "MODELO", "color": "#D81B60"}, {"word": "LENGUAJE", "color": "#6D4C41"}, {"word": "SISTEMA", "color": "#546E7A"}];
+const SIZE = 15;
+const DIRECTIONS = [
+  [0, 1], [0, -1], [1, 0], [-1, 0],
+  [1, 1], [1, -1], [-1, 1], [-1, -1]
+];
+
+function buildPuzzle() {
+  // Place longest words first, then shorter words. Avoid conflicting overlaps.
+  const board = Array.from({length: SIZE}, () => Array(SIZE).fill(null));
+  const placements = [];
+  const ordered = [...WORDS].sort((a, b) => b.word.length - a.word.length);
+  for (const item of ordered) {
+    const candidates = [];
+    for (const [dr, dc] of DIRECTIONS) {
+      for (let r = 0; r < SIZE; r++) {
+        for (let c = 0; c < SIZE; c++) {
+          const cells = [...item.word].map((_, k) => [r + dr*k, c + dc*k]);
+          const inBounds = cells.every(([rr, cc]) => rr >= 0 && rr < SIZE && cc >= 0 && cc < SIZE);
+          if (!inBounds) continue;
+          const clear = cells.every(([rr, cc], k) =>
+            board[rr][cc] === null || board[rr][cc].letter === item.word[k]
+          );
+          if (clear) candidates.push(cells);
+        }
+      }
+    }
+    if (!candidates.length) throw new Error("No se pudo ubicar " + item.word);
+    const cells = candidates[Math.floor(Math.random() * candidates.length)];
+    cells.forEach(([r, c], k) => {
+      if (board[r][c] === null) board[r][c] = {letter: item.word[k], owners: []};
+      board[r][c].owners.push(item.word);
+    });
+    placements.push({...item, cells});
+  }
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+      if (board[r][c] === null) {
+        board[r][c] = {letter: "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random()*26)], owners: []};
+      }
+    }
+  }
+  return {board, placements};
+}
+
+function render() {
+  const {board, placements} = buildPuzzle();
+  const grid = document.getElementById("grid");
+  const wordList = document.getElementById("wordList");
+  grid.replaceChildren();
+  wordList.replaceChildren();
+
+  const wordByName = Object.fromEntries(WORDS.map(w => [w.word, w]));
+  const placementMap = new Map();
+  for (const p of placements) {
+    p.cells.forEach(([r,c]) => {
+      const key = `${r},${c}`;
+      if (!placementMap.has(key)) placementMap.set(key, []);
+      placementMap.get(key).push(p.word);
+    });
+  }
+
+  board.forEach((row, r) => row.forEach((cell, c) => {
+    const el = document.createElement("div");
+    el.className = "cell";
+    el.textContent = cell.letter;
+    el.setAttribute("aria-label", `Fila ${r+1}, columna ${c+1}, letra ${cell.letter}`);
+    const owners = placementMap.get(`${r},${c}`) || [];
+    if (owners.length) {
+      // Crossings with different colors use a neutral background to preserve readability.
+      const unique = [...new Set(owners)];
+      if (unique.length === 1) {
+        const word = wordByName[unique[0]];
+        el.classList.add("found");
+        el.style.setProperty("--word-color", word.color);
+        const index = WORDS.findIndex(w => w.word === word.word);
+        el.style.setProperty("--delay", `${index * -0.17}s`);
+        el.style.setProperty("--speed", `${1.35 + index * 0.12}s`);
+      } else {
+        el.style.background = "linear-gradient(135deg, " +
+          unique.map((name, i) => `${wordByName[name].color} ${i*100/unique.length}% ${(i+1)*100/unique.length}%`).join(", ") + ")";
+        el.style.border = "2px solid #ffffff";
+        el.style.boxShadow = "0 0 0 1px #718096";
+      }
+      el.title = unique.join(" / ");
+    }
+    grid.appendChild(el);
+  }));
+
+  // Show the words in the original requested order.
+  WORDS.forEach((word, index) => {
+    const chip = document.createElement("div");
+    chip.className = "word-chip";
+    chip.style.setProperty("--word-color", word.color);
+    chip.style.setProperty("--delay", `${index * -0.17}s`);
+    chip.style.setProperty("--speed", `${1.35 + index * 0.12}s`);
+    const dot = document.createElement("span");
+    dot.className = "dot";
+    dot.setAttribute("aria-hidden", "true");
+    const label = document.createElement("span");
+    label.textContent = word.word;
+    chip.append(dot, label);
+    wordList.appendChild(chip);
+  });
+}
+
+const root = document.body;
+document.getElementById("toggle").addEventListener("click", function () {
+  const paused = root.classList.toggle("paused");
+  this.textContent = paused ? "Reanudar animación" : "Pausar animación";
+});
+document.getElementById("newGrid").addEventListener("click", render);
+render();
+</script>
+</body>
+</html>
